@@ -176,7 +176,7 @@ test('getTasksByDate — фильтр по дате и сортировка', ()
 });
 
 test('deleteTask', () => {
-  ctx.createTask({ date: '2026-07-28', room: '999', type: 'белье' });
+  ctx.createTask({ date: '2026-07-28', room: '999', type: 'бельё' });
   assert.ok(ctx.deleteTask('task_4'));
   assert.strictEqual(ctx.getTaskById('task_4'), null);
   assert.throws(() => ctx.deleteTask('task_4'));

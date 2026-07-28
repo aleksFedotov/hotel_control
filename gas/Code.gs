@@ -26,7 +26,7 @@ var TASK_COLS = [
   'id',            // task_<n>
   'date',          // yyyy-MM-dd
   'room',          // '203'
-  'type',          // выезд | текущая | белье | влажная
+  'type',          // выезд | текущая | бельё | влажная
   'has_checkout',  // да | нет (реальный выезд гостей или только заезд)
   'status',        // pending | in_progress | done
   'guests',        // число или ''
@@ -50,7 +50,7 @@ var TICKET_COLS = [
 var ROOM_COLS = ['room', 'type', 'floor'];
 var LOG_COLS = ['ts', 'actor', 'action', 'entity', 'details'];
 
-var TASK_TYPES = ['выезд', 'текущая', 'белье', 'влажная'];
+var TASK_TYPES = ['выезд', 'текущая', 'бельё', 'влажная'];
 var TASK_STATUSES = ['pending', 'in_progress', 'done'];
 var TICKET_CATEGORIES = ['сантехника', 'электрика', 'мебель', 'расходники', 'прочее'];
 var TICKET_STATUSES = ['new', 'in_progress', 'done'];

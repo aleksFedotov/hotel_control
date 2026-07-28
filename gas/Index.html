@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Отель-Контроль 2.0</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #f4f5f7; color: #222; }
+  .hidden { display: none !important; }
+
+  /* Вход по PIN */
+  #login { max-width: 320px; margin: 15vh auto; background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); text-align: center; }
+  #login h1 { font-size: 20px; margin-bottom: 16px; }
+  #login input { width: 100%; padding: 12px; font-size: 18px; text-align: center; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 12px; }
+
+  button { padding: 10px 16px; font-size: 15px; border: none; border-radius: 6px; background: #2f6fed; color: #fff; cursor: pointer; }
+  button:disabled { background: #9db6e8; cursor: default; }
+  button.ghost { background: #e8ebf0; color: #333; }
+  button.danger { background: #d9534f; }
+  button.small { padding: 6px 10px; font-size: 13px; }
+
+  /* Шапка */
+  header { background: #fff; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); position: sticky; top: 0; z-index: 5; }
+  header .title { font-weight: 700; font-size: 17px; margin-right: auto; }
+  header input[type=date] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+
+  /* Вкладки */
+  nav { display: flex; flex-wrap: wrap; gap: 4px; background: #fff; padding: 6px 16px 0; border-bottom: 1px solid #ddd; }
+  nav button { background: none; color: #555; border-radius: 6px 6px 0 0; padding: 10px 12px; font-size: 14px; }
+  nav button.active { background: #f4f5f7; color: #2f6fed; font-weight: 600; box-shadow: inset 0 -2px 0 #2f6fed; }
+
+  main { max-width: 760px; margin: 16px auto; padding: 0 12px 40px; }
+  section.card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  h2 { font-size: 16px; margin-bottom: 12px; }
+
+  /* Задачи */
+  .task { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-bottom: 1px solid #eee; flex-wrap: wrap; }
+  .task:last-child { border-bottom: none; }
+  .task .room { font-weight: 700; font-size: 17px; min-width: 44px; }
+  .task .info { flex: 1; min-width: 180px; font-size: 14px; }
+  .task .meta { color: #666; font-size: 13px; }
+  .badge { font-size: 12px; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+  .st-pending { background: #fff3cd; color: #8a6d00; }
+  .st-in_progress { background: #cfe2ff; color: #084298; }
+  .st-done { background: #d1e7dd; color: #0f5132; }
+  .sent { color: #0f5132; font-size: 12px; }
+  .group-title { font-size: 13px; color: #777; text-transform: uppercase; letter-spacing: .04em; margin: 14px 4px 4px; }
+
+  /* Формы */
+  form .row { margin-bottom: 12px; }
+  form label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+  form input, form select, form textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+  .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+  .rooms-grid button { background: #fff; color: #222; border: 1px solid #ccc; padding: 12px 0; font-size: 16px; }
+  .rooms-grid button.sel { background: #2f6fed; color: #fff; border-color: #2f6fed; }
+
+  /* Тикеты */
+  .ticket { padding: 10px 8px; border-bottom: 1px solid #eee; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ticket .desc { flex: 1; min-width: 180px; font-size: 14px; }
+
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+  #toast.err { background: #d9534f; }
+
+  /* Печатный лист (1-в-1 по «Лист Уборки.xlsx», A4 альбомная) */
+  #printSheet table { width: 100%; border-collapse: collapse; background: #fff; }
+  #printSheet td, #printSheet th { border: 1px solid #000; padding: 6px 8px; font-size: 14px; }
+  #printSheet .hdr { text-align: center; font-weight: 700; font-size: 16px; }
+  #printSheet .c { text-align: center; }
+  #printSheet .bottom td:first-child { font-weight: 600; white-space: nowrap; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    body * { visibility: hidden; }
+    #printSheet, #printSheet * { visibility: visible; }
+    #printSheet { position: absolute; left: 0; top: 0; width: 100%; margin: 0; }
+  }
+
+  /* Модальное окно редактирования */
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  #modal .box { background: #fff; border-radius: 10px; padding: 20px; width: 92%; max-width: 420px; max-height: 90vh; overflow: auto; }
+  #modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- Вход -->
+<div id="login">
+  <h1>Отель-Контроль 2.0</h1>
+  <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off">
+  <button id="loginBtn" style="width:100%">Войти</button>
+</div>
+
+<!-- Приложение -->
+<div id="app" class="hidden">
+  <header>
+    <span class="title">Отель-Контроль</span>
+    <input type="date" id="dateInput">
+    <button class="ghost small" id="todayBtn">Сегодня</button>
+    <button class="ghost small" id="refreshBtn" title="Обновить">⟳</button>
+    <button class="ghost small" id="logoutBtn">Выйти</button>
+  </header>
+  <nav id="tabs">
+    <button data-tab="list" class="active">Список на уборку</button>
+    <button data-tab="checkout">Выезд</button>
+    <button data-tab="checkin">Заезд</button>
+    <button data-tab="oneoff">Разовые</button>
+    <button data-tab="tickets">Тикеты</button>
+    <button data-tab="print">Печать</button>
+  </nav>
+  <main>
+    <section id="tab-list" class="card"></section>
+
+    <section id="tab-checkout" class="card hidden">
+      <h2>Добавить выезд</h2>
+      <p class="meta" style="margin-bottom:10px">Дата: <b class="curDate"></b>. Выберите номер:</p>
+      <div class="rooms-grid" id="checkoutRooms"></div>
+    </section>
+
+    <section id="tab-checkin" class="card hidden">
+      <h2>Добавить заезд</h2>
+      <p class="meta" style="margin-bottom:10px">Дата: <b class="curDate"></b>. Выберите номер:</p>
+      <div class="rooms-grid" id="checkinRooms"></div>
+      <form id="checkinForm" class="hidden" style="margin-top:14px">
+        <div class="row"><label>Номер</label><input id="ciRoom" disabled></div>
+        <div class="row"><label>Время заезда</label><input id="ciTime" type="time"></div>
+        <div class="row"><label>Гостей</label><input id="ciGuests" type="number" min="1" max="10"></div>
+        <div class="row"><label>Подготовить на (чел.)</label><input id="ciPrep" type="number" min="1" max="10"></div>
+        <div class="row"><label>Список гостей</label><input id="ciGuests2" type="text" placeholder="Фамилии, имена"></div>
+        <div class="row"><label>Комментарий</label><textarea id="ciComment" rows="2"></textarea></div>
+        <button type="submit">Сохранить заезд</button>
+      </form>
+    </section>
+
+    <section id="tab-oneoff" class="card hidden">
+      <h2>Разовые задачи</h2>
+      <p class="meta" style="margin-bottom:10px">Дата: <b class="curDate"></b></p>
+      <div class="row">
+        <label>Тип</label>
+        <select id="ooType">
+          <option value="текущая">Текущая уборка</option>
+          <option value="бельё">Смена белья</option>
+          <option value="влажная">Влажная (полы)</option>
+        </select>
+      </div>
+      <div class="rooms-grid" id="oneoffRooms"></div>
+    </section>
+
+    <section id="tab-tickets" class="card hidden">
+      <h2>Тикеты за <span class="curDate"></span></h2>
+      <div id="ticketList"></div>
+      <h2 style="margin-top:18px">Новый тикет</h2>
+      <form id="ticketForm">
+        <div class="row"><label>Номер (необязательно)</label>
+          <select id="tkRoom"><option value="">—</option></select></div>
+        <div class="row"><label>Категория</label>
+          <select id="tkCat">
+            <option>сантехника</option><option>электрика</option><option>мебель</option>
+            <option>расходники</option><option selected>прочее</option>
+          </select></div>
+        <div class="row"><label>Описание</label><textarea id="tkDesc" rows="2" required></textarea></div>
+        <button type="submit">Добавить тикет</button>
+      </form>
+    </section>
+
+    <section id="tab-print" class="card hidden">
+      <h2>Печатный лист за <span class="curDate"></span></h2>
+      <button id="printBtn">Сформировать и печатать</button>
+      <div id="printSheet" style="margin-top:14px"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Модальное редактирование задачи -->
+<div id="modal" class="hidden">
+  <div class="box">
+    <h2>Редактировать задачу</h2>
+    <form id="editForm">
+      <input type="hidden" id="edId">
+      <div class="row"><label>Номер</label><input id="edRoom"></div>
+      <div class="row"><label>Время заезда</label><input id="edTime" type="time"></div>
+      <div class="row"><label>Гостей</label><input id="edGuests" type="number" min="0" max="10"></div>
+      <div class="row"><label>Подготовить на</label><input id="edPrep" type="number" min="0" max="10"></div>
+      <div class="row"><label>Список гостей</label><input id="edGuests2" type="text"></div>
+      <div class="row"><label>Комментарий</label><textarea id="edComment" rows="2"></textarea></div>
+      <div class="actions">
+        <button type="button" class="ghost" id="edCancel">Отмена</button>
+        <button type="submit">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+// ---------- состояние ----------
+var state = {
+  pin: localStorage.getItem('hotel_token') || '',
+  date: '',
+  tasks: [],
+  tickets: [],
+  rooms: [],
+  tab: 'list'
+};
+var $ = function (id) { return document.getElementById(id); };
+
+// ---------- вызовы сервера ----------
+function api(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function (resolve, reject) {
+    var runner = google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(function (e) { reject(new Error(e && e.message ? e.message : String(e))); });
+    runner[fn].apply(runner, [state.pin].concat(args));
+  });
+}
+
+function toast(msg, isErr) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'err' : '';
+  t.style.opacity = '1';
+  setTimeout(function () { t.style.opacity = '0'; }, 2600);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// ---------- вход ----------
+function tryLogin(pin) {
+  google.script.run
+    .withSuccessHandler(function (ok) {
+      if (!ok) { toast('Неверный PIN', true); return; }
+      state.pin = pin;
+      localStorage.setItem('hotel_token', pin);
+      $('login').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      initApp();
+    })
+    .withFailureHandler(function () { toast('Неверный PIN', true); })
+    .checkPin(pin);
+}
+
+$('loginBtn').onclick = function () { tryLogin($('pinInput').value.trim()); };
+$('pinInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('loginBtn').click(); });
+$('logoutBtn').onclick = function () {
+  localStorage.removeItem('hotel_token');
+  location.reload();
+};
+
+// ---------- инициализация ----------
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+
+function initApp() {
+  if (!state.date) state.date = todayStr();
+  $('dateInput').value = state.date;
+  loadData();
+}
+
+$('dateInput').onchange = function () { state.date = this.value || todayStr(); loadData(); };
+$('todayBtn').onclick = function () { state.date = todayStr(); $('dateInput').value = state.date; loadData(); };
+$('refreshBtn').onclick = function () { loadData(); };
+
+function loadData() {
+  api('getWebData', state.date).then(function (d) {
+    state.tasks = d.tasks; state.tickets = d.tickets; state.rooms = d.rooms;
+    renderAll();
+  }).catch(function (e) {
+    toast(e.message, true);
+    if (/PIN/.test(e.message)) { localStorage.removeItem('hotel_token'); location.reload(); }
+  });
+}
+
+// ---------- вкладки ----------
+$('tabs').addEventListener('click', function (e) {
+  var b = e.target.closest('button');
+  if (!b) return;
+  state.tab = b.dataset.tab;
+  Array.prototype.forEach.call($('tabs').children, function (x) { x.classList.toggle('active', x === b); });
+  ['list', 'checkout', 'checkin', 'oneoff', 'tickets', 'print'].forEach(function (t) {
+    $('tab-' + t).classList.toggle('hidden', t !== state.tab);
+  });
+});
+
+// ---------- рендер ----------
+var TYPE_LABEL = { 'выезд': 'Выезд', 'текущая': 'Текущая', 'бельё': 'Бельё', 'влажная': 'Влажная' };
+var STATUS_LABEL = { pending: 'Ожидает', in_progress: 'В работе', done: 'Готово' };
+
+function renderAll() {
+  Array.prototype.forEach.call(document.querySelectorAll('.curDate'), function (el) {
+    el.textContent = state.date.split('-').reverse().join('.');
+  });
+  renderList(); renderRooms(); renderTickets();
+}
+
+function renderList() {
+  var el = $('tab-list');
+  if (!state.tasks.length) { el.innerHTML = '<h2>Список на уборку</h2><p class="meta">На эту дату задач нет.</p>'; return; }
+  var groups = [['выезд', 'Выезды и заезды'], ['текущая', 'Текущая уборка'], ['бельё', 'Бельё'], ['влажная', 'Влажная (полы)']];
+  var html = '<h2>Список на уборку</h2>';
+  groups.forEach(function (g) {
+    var list = state.tasks.filter(function (t) { return t.type === g[0]; });
+    if (!list.length) return;
+    html += '<div class="group-title">' + g[1] + '</div>';
+    list.forEach(function (t) { html += taskHtml(t); });
+  });
+  el.innerHTML = html;
+}
+
+function taskHtml(t) {
+  var label = t.type === 'выезд'
+    ? (t.has_checkout === 'да' ? 'Выезд' : 'Подготовка к заезду')
+    : TYPE_LABEL[t.type];
+  var meta = [];
+  if (t.checkin_time) meta.push('заезд ' + esc(t.checkin_time));
+  if (t.guests) meta.push('гостей: ' + esc(t.guests));
+  if (t.prep_for) meta.push('на ' + esc(t.prep_for));
+  if (t.guest_list) meta.push(esc(t.guest_list));
+  if (t.comment) meta.push(esc(t.comment));
+  var btns = '';
+  if (t.status === 'pending' && !t.sent_to_maid) {
+    btns += '<button class="small" data-act="send" data-id="' + t.id + '">Отправить</button>';
+  } else if (t.sent_to_maid && t.status !== 'done') {
+    btns += '<span class="sent">✓ отправлена</span>';
+  }
+  btns += ' <button class="small ghost" data-act="edit" data-id="' + t.id + '">✎</button>';
+  btns += ' <button class="small danger" data-act="del" data-id="' + t.id + '">✕</button>';
+  return '<div class="task">' +
+    '<span class="room">' + esc(t.room) + '</span>' +
+    '<span class="info">' + label +
+      (meta.length ? '<div class="meta">' + meta.join(' · ') + '</div>' : '') +
+    '</span>' +
+    '<span class="badge st-' + t.status + '">' + STATUS_LABEL[t.status] + '</span>' +
+    '<span>' + btns + '</span></div>';
+}
+
+$('tab-list').addEventListener('click', function (e) {
+  var b = e.target.closest('button');
+  if (!b) return;
+  var id = b.dataset.id, act = b.dataset.act;
+  if (act === 'send') {
+    b.disabled = true;
+    api('sendToMaid', id).then(function (r) {
+      toast(r.already ? 'Уже отправлена ранее' : 'Отправлено горничной');
+      loadData();
+    }).catch(function (err) { toast(err.message, true); b.disabled = false; });
+  } else if (act === 'del') {
+    if (!confirm('Удалить задачу?')) return;
+    api('deleteTaskWeb', id).then(function () { toast('Удалено'); loadData(); })
+      .catch(function (err) { toast(err.message, true); });
+  } else if (act === 'edit') {
+    openEdit(state.tasks.filter(function (t) { return t.id === id; })[0]);
+  }
+});
+
+// ---------- формы с выбором номера ----------
+function renderRooms() {
+  var grids = { checkoutRooms: pickRoom('checkout'), checkinRooms: pickRoom('checkin'), oneoffRooms: pickRoom('oneoff') };
+  Object.keys(grids).forEach(function (id) {
+    $(id).innerHTML = state.rooms.map(function (r) {
+      return '<button data-room="' + esc(r.room) + '">' + esc(r.room) + '</button>';
+    }).join('');
+    $(id).onclick = grids[id];
+  });
+  $('tkRoom').innerHTML = '<option value="">—</option>' + state.rooms.map(function (r) {
+    return '<option>' + esc(r.room) + '</option>';
+  }).join('');
+}
+
+function pickRoom(kind) {
+  return function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    var room = b.dataset.room;
+    if (kind === 'checkout') {
+      b.disabled = true;
+      api('addCheckout', state.date, room).then(function () {
+        toast('Выезд ' + room + ' добавлен'); loadData();
+      }).catch(function (err) { toast(err.message, true); })
+        .then(function () { b.disabled = false; });
+    } else if (kind === 'oneoff') {
+      var type = $('ooType').value;
+      b.disabled = true;
+      api('addOneOff', state.date, type, room).then(function () {
+        toast(type + ' ' + room + ' добавлена'); loadData();
+      }).catch(function (err) { toast(err.message, true); })
+        .then(function () { b.disabled = false; });
+    } else { // checkin — показать форму
+      $('checkinForm').classList.remove('hidden');
+      $('ciRoom').value = room;
+    }
+  };
+}
+
+$('checkinForm').onsubmit = function (e) {
+  e.preventDefault();
+  var fields = {
+    checkin_time: $('ciTime').value,
+    guests: $('ciGuests').value,
+    prep_for: $('ciPrep').value,
+    guest_list: $('ciGuests2').value.trim(),
+    comment: $('ciComment').value.trim()
+  };
+  api('addCheckin', state.date, $('ciRoom').value, fields).then(function () {
+    toast('Заезд сохранён');
+    $('checkinForm').classList.add('hidden');
+    e.target.reset();
+    loadData();
+  }).catch(function (err) { toast(err.message, true); });
+};
+
+// ---------- редактирование ----------
+function openEdit(t) {
+  if (!t) return;
+  $('edId').value = t.id;
+  $('edRoom').value = t.room;
+  $('edTime').value = t.checkin_time || '';
+  $('edGuests').value = t.guests || '';
+  $('edPrep').value = t.prep_for || '';
+  $('edGuests2').value = t.guest_list || '';
+  $('edComment').value = t.comment || '';
+  $('modal').classList.remove('hidden');
+}
+$('edCancel').onclick = function () { $('modal').classList.add('hidden'); };
+$('editForm').onsubmit = function (e) {
+  e.preventDefault();
+  var fields = {
+    room: $('edRoom').value.trim(),
+    checkin_time: $('edTime').value,
+    guests: $('edGuests').value,
+    prep_for: $('edPrep').value,
+    guest_list: $('edGuests2').value.trim(),
+    comment: $('edComment').value.trim()
+  };
+  api('editTask', $('edId').value, fields).then(function () {
+    $('modal').classList.add('hidden');
+    toast('Сохранено'); loadData();
+  }).catch(function (err) { toast(err.message, true); });
+};
+
+// ---------- тикеты ----------
+var TICKET_STATUS = { 'new': 'Новый', 'in_progress': 'В работе', 'done': 'Готово' };
+function renderTickets() {
+  var el = $('ticketList');
+  if (!state.tickets.length) { el.innerHTML = '<p class="meta">Тикетов нет.</p>'; return; }
+  el.innerHTML = state.tickets.map(function (t) {
+    var btns = '';
+    if (t.status === 'new') btns = '<button class="small" data-tk="' + t.id + '" data-st="in_progress">В работу</button>';
+    if (t.status === 'in_progress') btns = '<button class="small" data-tk="' + t.id + '" data-st="done">Готово</button>';
+    return '<div class="ticket">' +
+      '<span class="badge st-' + (t.status === 'done' ? 'done' : (t.status === 'in_progress' ? 'in_progress' : 'pending')) + '">' + TICKET_STATUS[t.status] + '</span>' +
+      '<span class="desc">' + (t.room ? '<b>' + esc(t.room) + '</b> · ' : '') + esc(t.description) +
+        ' <span class="meta">(' + esc(t.category) + ', ' + esc(t.source === 'maid' ? 'горничная' : 'админ') + ')</span></span>' +
+      btns + '</div>';
+  }).join('');
+}
+$('ticketList').addEventListener('click', function (e) {
+  var b = e.target.closest('button');
+  if (!b) return;
+  api('updateTicketStatusWeb', b.dataset.tk, b.dataset.st).then(function () { loadData(); })
+    .catch(function (err) { toast(err.message, true); });
+});
+$('ticketForm').onsubmit = function (e) {
+  e.preventDefault();
+  api('addTicketWeb', $('tkRoom').value, $('tkCat').value, $('tkDesc').value.trim()).then(function () {
+    toast('Тикет добавлен');
+    $('tkDesc').value = '';
+    loadData();
+  }).catch(function (err) { toast(err.message, true); });
+};
+
+// ---------- печатный лист ----------
+$('printBtn').onclick = function () {
+  this.disabled = true;
+  var btn = this;
+  api('getPrintSheetData', state.date).then(function (d) {
+    renderPrintSheet(d);
+    btn.disabled = false;
+    setTimeout(function () { window.print(); }, 100);
+  }).catch(function (err) { toast(err.message, true); btn.disabled = false; });
+};
+
+function renderPrintSheet(d) {
+  var html = '<table>' +
+    '<tr><td colspan="6" class="hdr">Дата: ' + esc(d.dateRu) + '</td></tr>' +
+    '<tr><th colspan="2" class="c">Выезды</th><th colspan="4" class="c">Заезды</th></tr>' +
+    '<tr><th class="c" style="width:8%">№</th><th style="width:14%">Статус</th>' +
+    '<th class="c" style="width:8%">№</th><th style="width:14%">Время прибытия</th><th colspan="2">Комментарий</th></tr>';
+  d.rows.forEach(function (r) {
+    var hasCheckout = r.checkoutStatus !== '';
+    var hasCheckin = r.checkinTime || r.checkinComment;
+    html += '<tr>' +
+      '<td class="c">' + (hasCheckout ? esc(r.room) : '') + '</td>' +
+      '<td class="c">' + esc(r.checkoutStatus) + '</td>' +
+      '<td class="c">' + (hasCheckin ? esc(r.room) : '') + '</td>' +
+      '<td class="c">' + esc(r.checkinTime) + '</td>' +
+      '<td colspan="2">' + esc(r.checkinComment) + '</td></tr>';
+  });
+  html += '<tr class="bottom"><td>Текущая/пыль</td><td colspan="5">' + esc(d.bottom.current) + '</td></tr>' +
+    '<tr class="bottom"><td>Полы/Влаж.уб.</td><td colspan="5">' + esc(d.bottom.wet) + '</td></tr>' +
+    '<tr class="bottom"><td>Белье</td><td colspan="5">' + esc(d.bottom.linen) + '</td></tr></table>';
+  $('printSheet').innerHTML = html;
+}
+
+// ---------- автологин ----------
+if (state.pin) tryLogin(state.pin);
+</script>
+</body>
+</html>
