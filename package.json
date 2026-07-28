@@ -1,0 +1,8 @@
+{
+  "name": "hotel-control-2",
+  "private": true,
+  "description": "Отель-Контроль 2.0 — локальные юнит-тесты GAS-кода",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
